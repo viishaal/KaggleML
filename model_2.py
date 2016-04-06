@@ -12,6 +12,7 @@ _CROSS_VALIDATE_ = True
 _NORMALIZE_ = True
 _CREATE_ENSEMBLE_ = True
 
+_K_FOLDS_ = 5
 
 if __name__ == "__main__":
 	data = read_data(_TRAINING_FILE_NAME_)
@@ -32,7 +33,7 @@ if __name__ == "__main__":
 
 	# cross-validate
 	if _CROSS_VALIDATE_:
-		crossValidate_adaboost(train_data,train_labels)
+		crossValidate_adaboost(train_data,train_labels, _K_FOLDS_)
 	
 	test_data = read_data(_TEST_FILE_NAME_)
 	test_data = preprocess_data(test_data, _FIELDS_FILE_, _NORMALIZE_)
