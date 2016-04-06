@@ -1,5 +1,6 @@
 import time
 from models import *
+from read_data import *
 
 _TRAINING_FILE_NAME_ = "Data/data.csv"
 _TEST_FILE_NAME_ = "Data/quiz.csv"
@@ -7,10 +8,12 @@ _FIELDS_FILE_ = "Data/field_types.txt"
 _OUTPUT_FILE_NAME_ = "Submissions/{}.csv"
 _OUTPUT_FILE_HEADER_ = ["Prediction"]
 
-_CROSS_VALIDATE_ = True
+_CROSS_VALIDATE_ = False
 
 _NORMALIZE_ = True
-_CREATE_ENSEMBLE_ = True
+_CREATE_ENSEMBLE_ = False
+
+_ONE_HOT_ENCODING_ = True
 
 _K_FOLDS_ = 5
 
@@ -21,12 +24,12 @@ if __name__ == "__main__":
 	train_labels = train_labels.reshape(train_labels.size, 1)
 	train_data = data.drop("label", 1)
 
-	train_data = preprocess_data(train_data, _FIELDS_FILE_,_NORMALIZE_)
+	train_data, les, lbs = preprocess_data(train_data, _FIELDS_FILE_,_NORMALIZE_, _ONE_HOT_ENCODING_, None, None)
 
 	if _CREATE_ENSEMBLE_:
 		train_data, train_labels, ensemble = create_ensemble(train_data, train_labels)
 
-	err, model = ada_boost_classifier(train_data, train_labels, train_data, train_labels)
+	err, model = extra_tree_classifier(train_data, train_labels, train_data, train_labels)
 	print "###############################################"
 	print "Trianing error rate:", err
 	print "###############################################"
@@ -36,7 +39,7 @@ if __name__ == "__main__":
 		crossValidate_adaboost(train_data,train_labels, _K_FOLDS_)
 	
 	test_data = read_data(_TEST_FILE_NAME_)
-	test_data = preprocess_data(test_data, _FIELDS_FILE_, _NORMALIZE_)
+	test_data, _, _ = preprocess_data(test_data, _FIELDS_FILE_, _NORMALIZE_, _ONE_HOT_ENCODING_, les, lbs)
 
 	if _CREATE_ENSEMBLE_:
 		test_data = append_test_data(test_data, ensemble)
