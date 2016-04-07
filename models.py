@@ -14,11 +14,10 @@ from sklearn.neural_network import MLPClassifier
 from sklearn.svm import SVC
 import time
 
-
-
+#### MODEL CONFIG
 _RF_NUM_ESTIMATORS_ = 250
-_ET_NUM_ESTIMATORS_ = 250
-_GBM_ESTIMATORS_ = 1000
+_ET_NUM_ESTIMATORS_ = 400
+_GBM_ESTIMATORS_ = 1
 
 _ADABOOST_NUM_ESTIMATORS_ = 50
 _ADABOOST_LALGO_ = "SAMME"
@@ -27,6 +26,8 @@ _ADABOOST_LEARNING_RATE_ = 1
 _ADABOOST_BASE_ESTIMATOR_ = ExtraTreesClassifier(n_estimators=_ET_NUM_ESTIMATORS_,random_state=777,n_jobs=-1)
 
 _CHECK_SIGN_ = False     #gbm does not give +1,-1 so tick this before running gbm
+
+
 
 def evaluate(predictions, labels):	
 	total_examples = labels.size
@@ -38,6 +39,15 @@ def model_evaluate(model, test_data, test_labels):
 		preds[preds > 0]  = 1
 		preds[preds <= 0] = -1
 	return evaluate(preds.reshape(preds.size, 1), test_labels)
+
+
+def cross_validate_model(train_data, train_labels, kfolds, model):
+	#nrfc = ExtraTreesClassifier(n_estimators=_ET_NUM_ESTIMATORS_, random_state=42)
+	#nrfc = AdaBoostClassifier(_ADABOOST_BASE_ESTIMATOR_, n_estimators=_ADABOOST_NUM_ESTIMATORS_, algorithm=_ADABOOST_LALGO_, learning_rate=_ADABOOST_LEARNING_RATE_)
+	kfold = cross_validation.KFold(len(train_data), n_folds=kfolds)
+	scores = cross_validation.cross_val_score(model, train_data, train_labels.ravel(), cv=kfold, n_jobs=-1)
+	print "Cross-validation score:", sum(scores)/len(scores)
+	print "###############################################"
 
 def lda(train_data, train_labels, test_data, test_labels):
 	lda = discriminant_analysis.LinearDiscriminantAnalysis()
@@ -94,13 +104,27 @@ def nn(train_data, train_labels, test_data, test_labels):
 	return model_evaluate(clf, test_data, test_labels), clf
 
 
-_ENSEMBLE_STACK_ = {
-						"lda": lda,
-						"qda": qda,
-						"gbm": gbm,
-						"gbr": gbr,
-						"rf" : random_forest
+### add model function to this dictionary once you define it above
+_ESTIMATORS_META_ = {
+								"gbm": gbm,
+								"adaboost": ada_boost_classifier, 
+								"etc": extra_tree_classifier,
+								"rf": random_forest,
+								"neural": nn,
+								"lda": lda,
+								"qda": qda,
+								"gbr": gbr
 					}
+
+
+## ENSEMBLER CONFIG
+_ENSEMBLE_STACK_ = [
+						"lda",
+						"qda",
+						"gbm",
+						"gbr",
+						"rf",
+					]
 
 
 def create_ensemble(train_data, train_labels):
@@ -110,9 +134,9 @@ def create_ensemble(train_data, train_labels):
 						cross_validation.train_test_split(train_data, train_labels, test_size=0.75, random_state=0)
 
 	ensemble = []
-	for k,f in _ENSEMBLE_STACK_.iteritems():
-		err, model = f(train_data_1, train_labels_1, train_data_1, train_labels_1)
-		print "training error rate of ", k, " is ", err 
+	for m in _ENSEMBLE_STACK_:
+		err, model = _ESTIMATORS_META_[m](train_data_1, train_labels_1, train_data_1, train_labels_1)
+		print "training error rate of ", m, " is ", err 
 		ensemble.append(model)
 
 	predictions = []
@@ -136,11 +160,3 @@ def append_test_data(test_data, ensemble):
 	#test_data = pd.concat([pd.DataFrame(preds_lda), pd.DataFrame(preds_logreg), pd.DataFrame(preds_qda), pd.DataFrame(preds_svm), pd.DataFrame(preds_rf)], axis='1')
 	return test_data
 
-
-def crossValidate_adaboost(train_data, train_labels, kfolds):
-	#nrfc = ExtraTreesClassifier(n_estimators=_ET_NUM_ESTIMATORS_, random_state=42)
-	nrfc = AdaBoostClassifier(_ADABOOST_BASE_ESTIMATOR_, n_estimators=_ADABOOST_NUM_ESTIMATORS_, algorithm=_ADABOOST_LALGO_, learning_rate=_ADABOOST_LEARNING_RATE_)
-	kfold = cross_validation.KFold(len(train_data), n_folds=kfolds)
-	scores = cross_validation.cross_val_score(nrfc, train_data, train_labels.ravel(), cv=kfold, n_jobs=-1)
-	print "Cross-validation score:", sum(scores)/len(scores)
-	print "###############################################"
