@@ -12,21 +12,19 @@ _OUTPUT_FILE_HEADER_ = ["Prediction"]
 
 _GENERATE_OUTPUT_FILE_ = False
 
-_CROSS_VALIDATE_ = False
-
 _NORMALIZE_ = True
 
 _K_FOLDS_ = 5
 
-#_N_ESTIMATORS_ = [50,150,200,250,300,350,400,450,500]
-_MAX_FEATURES_ = ["log2", "None"]
-#_MAX_DEPTH_ = [4,6,8,10,12,14,16,18,20]
+_ONE_HOT_ENCODING_ = True
 
-_N_ESTIMATORS_ = [1,2]
-_MAX_DEPTH_ = [4,6]
+_N_ESTIMATORS_ = [150]
+_MAX_FEATURES_ = ["log2", "None"]
+_MAX_DEPTH_ = range(20, 51, 5)
+
 
 def model_instantiate(estm, depth):
-	return ExtraTreesClassifier(n_estimators=estm, n_jobs=-1, random_state=342, max_depth=depth)
+	return ExtraTreesClassifier(n_estimators=estm, n_jobs=-1, random_state=342, max_depth=depth, max_features=None)
 
 def model_cross_validate(train_data, train_labels, kfolds, model):
 	kfold = cross_validation.KFold(len(train_data), n_folds=kfolds)
@@ -49,9 +47,9 @@ if __name__ == "__main__":
 
 	best_avg_score = 0
 	bes_model = None
-	for md in _MAX_DEPTH_:
+	for estm in _N_ESTIMATORS_:
 		scores = []
-		for estm in _N_ESTIMATORS_:
+		for md in _MAX_DEPTH_:
 			model = model_instantiate(estm, md)
 			score = model_cross_validate(train_data,train_labels, _K_FOLDS_, model)
 			scores.append(score)
@@ -60,14 +58,14 @@ if __name__ == "__main__":
 				best_model = model
 
 		plt.close()
-		plt.plot(_N_ESTIMATORS_, scores)
+		plt.plot(_MAX_DEPTH_, scores)
 		#plt.errorbar(_N_ESTIMATORS_, scores, yerr=s_devs)
 		axes = plt.gca()
-		axes.set_xlim([0, max(_N_ESTIMATORS_) + 100])
-		plt.title("ETC Tuning - {}".format(str(md)))
-		plt.xlabel("number of estimators")
+		axes.set_xlim([0, max(_MAX_DEPTH_) + 10])
+		plt.title("ETC Tuning - {} Depth".format(str(estm)))
+		plt.xlabel("depth")
 		plt.ylabel("Accuracy")
-		plt.savefig("figs/etc_tuning_{}.png".format(str(md)), format="png")
+		plt.savefig("figs/etc_tuning_{}_estm.png".format(str(estm)), format="png")
 	
 	if _GENERATE_OUTPUT_FILE_:
 		test_data = read_data(_TEST_FILE_NAME_)

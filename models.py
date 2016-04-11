@@ -15,11 +15,11 @@ from sklearn.svm import SVC
 import time
 
 #### MODEL CONFIG
-_RF_NUM_ESTIMATORS_ = 250
-_ET_NUM_ESTIMATORS_ = 400
-_GBM_ESTIMATORS_ = 1
+_RF_NUM_ESTIMATORS_ = 400
+_ET_NUM_ESTIMATORS_ = 250
+_GBM_ESTIMATORS_ = 1000
 
-_ADABOOST_NUM_ESTIMATORS_ = 50
+_ADABOOST_NUM_ESTIMATORS_ = 1000
 _ADABOOST_LALGO_ = "SAMME"
 _ADABOOST_LEARNING_RATE_ = 1
 #_ADABOOST_BASE_ESTIMATOR_ = RandomForestClassifier(n_estimators=200,criterion="entropy",max_features=None,random_state=777,n_jobs=-1)
@@ -40,68 +40,64 @@ def model_evaluate(model, test_data, test_labels):
 		preds[preds <= 0] = -1
 	return evaluate(preds.reshape(preds.size, 1), test_labels)
 
+def fit_model(model, train_data, train_labels, test_data, test_labels):
+	model.fit(train_data, train_labels.ravel())
+	if test_data is None or test_labels is None:
+		return model_evaluate(model, train_data, train_labels)
+	else:
+		return model_evaluate(model, test_data, test_labels)
 
 def cross_validate_model(train_data, train_labels, kfolds, model):
 	#nrfc = ExtraTreesClassifier(n_estimators=_ET_NUM_ESTIMATORS_, random_state=42)
 	#nrfc = AdaBoostClassifier(_ADABOOST_BASE_ESTIMATOR_, n_estimators=_ADABOOST_NUM_ESTIMATORS_, algorithm=_ADABOOST_LALGO_, learning_rate=_ADABOOST_LEARNING_RATE_)
 	kfold = cross_validation.KFold(len(train_data), n_folds=kfolds)
 	scores = cross_validation.cross_val_score(model, train_data, train_labels.ravel(), cv=kfold, n_jobs=-1)
+	print "###############################################"
 	print "Cross-validation score:", sum(scores)/len(scores)
 	print "###############################################"
 
-def lda(train_data, train_labels, test_data, test_labels):
+### Use below functions for model instantiation
+
+def lda():
 	lda = discriminant_analysis.LinearDiscriminantAnalysis()
-	lda.fit(train_data, train_labels.ravel())
-	return model_evaluate(lda, test_data, test_labels), lda
+	return lda
 
-def random_forest(train_data, train_labels, test_data, test_labels):
+def random_forest():
 	rfc = RandomForestClassifier(n_estimators=_RF_NUM_ESTIMATORS_)
-	rfc.fit(train_data, train_labels.ravel())
-	return model_evaluate(rfc, test_data, test_labels), rfc
+	return rfc
 
-def extra_tree_classifier(train_data, train_labels, test_data, test_labels):
-	etc = ExtraTreesClassifier(n_estimators=_ET_NUM_ESTIMATORS_)
-	etc.fit(train_data, train_labels.ravel())
-	return model_evaluate(etc, test_data, test_labels), etc
+def extra_tree_classifier():
+	etc = ExtraTreesClassifier(n_estimators=_ET_NUM_ESTIMATORS_)#, max_depth=30)#, max_features=None)
+	return etc
 
-def ada_boost_classifier(train_data, train_labels, test_data, test_labels):
+def ada_boost_classifier():
 	ada = AdaBoostClassifier(_ADABOOST_BASE_ESTIMATOR_, n_estimators=_ADABOOST_NUM_ESTIMATORS_, algorithm=_ADABOOST_LALGO_, learning_rate=_ADABOOST_LEARNING_RATE_)
-	ada.fit(train_data, train_labels.ravel())
-	return model_evaluate(ada, test_data, test_labels), ada
+	return ada
 
-def gbm(train_data, train_labels, test_data, test_labels):
+def gbm():
 	params = {'n_estimators': _GBM_ESTIMATORS_, 'max_depth': 4, 'learning_rate': 0.5}
 	clf = GradientBoostingClassifier(**params)
+	return gbm
 
-	clf.fit(train_data, train_labels.ravel())
-	#mse = mean_squared_error(train_labels, clf.predict(train_data))
-	#print("MSE: %.4f" % mse)
-	return model_evaluate(clf, test_data, test_labels), clf
-
-def gbr(train_data, train_labels, test_data, test_labels):
+def gbr():
 	est = GradientBoostingRegressor(n_estimators=_GBM_ESTIMATORS_, learning_rate=0.1, max_depth=1, random_state=0, loss='ls')
-	est.fit(train_data, train_labels.ravel())
-	return model_evaluate(est, test_data, test_labels), est
+	return est
 
-def logistic_regression_mle(train_data, train_labels, test_data, test_labels):
+def logistic_regression_mle():
 	logreg = linear_model.LogisticRegression(C=1e5)
-	logreg.fit(train_data, train_labels.ravel())
-	return model_evaluate(lda, test_data, test_labels), logreg
+	return logreg
 
-def qda(train_data, train_labels, test_data, test_labels):
+def qda():
 	qda = discriminant_analysis.QuadraticDiscriminantAnalysis()
-	qda.fit(train_data, train_labels.ravel())
-	return model_evaluate(qda, test_data, test_labels), qda
+	return qda
 
-def svm(train_data, train_labels, test_data, test_labels):
+def svm():
 	svm = SVC();
-	svm.fit(train_data, train_labels.ravel())
-	return model_evaluate(svm, test_data, test_labels), svm
+	return svm
 
-def nn(train_data, train_labels, test_data, test_labels):
+def nn():
 	clf = MLPClassifier(algorithm='l-bfgs', alpha=1e-5, hidden_layer_sizes=(200,), verbose=False, random_state=55)
-	clf.fit(train_data, train_labels.ravel())
-	return model_evaluate(clf, test_data, test_labels), clf
+	return clf
 
 
 ### add model function to this dictionary once you define it above
@@ -122,7 +118,7 @@ _ENSEMBLE_STACK_ = [
 						"lda",
 						"qda",
 						"gbm",
-						"gbr",
+						#"gbr",
 						"rf",
 					]
 
@@ -135,13 +131,14 @@ def create_ensemble(train_data, train_labels):
 
 	ensemble = []
 	for m in _ENSEMBLE_STACK_:
-		err, model = _ESTIMATORS_META_[m](train_data_1, train_labels_1, train_data_1, train_labels_1)
+		model = _ESTIMATORS_META_[m]()
+		err = fit_model(model, train_data_1, train_labels_1, None, None)
 		print "training error rate of ", m, " is ", err 
 		ensemble.append(model)
 
 	predictions = []
 	for i, model in enumerate(ensemble):
-		predictions.append(model.predict(train_data_2))
+		predictions.append(model.predict_proba(train_data_2)[:,1])
 
 	for i, prediction in enumerate(predictions):
 		train_data_2["nf_"+str(i)] = prediction
@@ -152,7 +149,7 @@ def create_ensemble(train_data, train_labels):
 def append_test_data(test_data, ensemble):
 	predictions = []
 	for i, model in enumerate(ensemble):
-		predictions.append(model.predict(test_data))
+		predictions.append(model.predict_proba(test_data)[:,1])
 
 	for i, prediction in enumerate(predictions):
 		test_data["nf_"+str(i)] = prediction
