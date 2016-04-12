@@ -4,6 +4,7 @@ import numpy as np
 from utils import *
 
 BLACKLIST = ['18','20','23','25','26','58']
+_QUANTIZE_ = True
 
 def read_data(file_name):
 	data = pd.read_csv(file_name)
@@ -65,6 +66,17 @@ def preprocess_data(data, field_types_file, isNormalize, oneHot, polyTransform, 
 			#data[column] = preprocessing.StandardScalar().fit_transform(data[column].reshape(-1,1))
 			non_categ.append(column)
 
+
+	if _QUANTIZE_:
+		# do something with 59 and 60
+		data["59p60"] = data["59"] + data["60"]
+		data["59m60"] = data["59"] - data["60"]
+		lab_1 = np.histogram(data["59"], bins=200)[0]
+		data["59quant"] = binning(data["59"], 5, lab_1)
+
+		lab_2 = np.histogram(data["60"], bins=200)[0]
+		data["60quant"] = binning(data["60"], 5, lab_2)
+
 	if polyTransform:
 		print "Adding polynomial features: ", data.shape
 		poly_features = ['59', '60']
@@ -74,23 +86,14 @@ def preprocess_data(data, field_types_file, isNormalize, oneHot, polyTransform, 
 			transformed_df = poly.fit_transform(data_to_transform)
 			#print type(transformed_df), transformed_df.shape
 			new_poly = poly
-			data.drop(poly_features, axis=1) #redundant
+			data = data.drop(poly_features, axis=1) #redundant features
 			data = pd.concat([data, pd.DataFrame(transformed_df)], axis=1)
 		else:
 			transformed_df = poly_transformer.fit_transform(data_to_transform)
-			data.drop(poly_features, axis=1) #redundant
+			data = data.drop(poly_features, axis=1) #redundant features
 			data = pd.concat([data, pd.DataFrame(transformed_df)], axis=1)
 		print "Done adding polynomial features: ", data.shape
 
-
-	# do something with 59 and 60
-	data["59p60"] = data["59"] + data["60"]
-	data["59m60"] = data["59"] - data["60"]
-	lab_1 = np.histogram(data["59"], bins=100)[0]
-	data["59quant"] = binning(data["59"], 5, lab_1)
-
-	lab_2 = np.histogram(data["60"], bins=100)[0]
-	data["60quant"] = binning(data["60"], 5, lab_2)
 
 	if isNormalize:
 		data[non_categ] = preprocessing.scale(data[non_categ])

@@ -29,7 +29,7 @@ _CHECK_SIGN_ = False     #gbm does not give +1,-1 so tick this before running gb
 
 
 
-def evaluate(predictions, labels):	
+def evaluate(predictions, labels):
 	total_examples = labels.size
 	return (total_examples - np.sum(predictions == labels))*1.0/total_examples
 
@@ -84,7 +84,7 @@ def gbr():
 	return est
 
 def logistic_regression_mle():
-	logreg = linear_model.LogisticRegression(C=1e5)
+	logreg = linear_model.LogisticRegression()
 	return logreg
 
 def qda():
@@ -156,4 +156,53 @@ def append_test_data(test_data, ensemble):
 
 	#test_data = pd.concat([pd.DataFrame(preds_lda), pd.DataFrame(preds_logreg), pd.DataFrame(preds_qda), pd.DataFrame(preds_svm), pd.DataFrame(preds_rf)], axis='1')
 	return test_data
+
+def blend_models(n_folds, train_data, train_labels, holdout, test_data):
+	np.random.seed(0) # seed to shuffle the train set
+
+	shuffle = False
+	X = train_data
+	y = train_labels.ravel()
+	X_submission = holdout
+
+	if shuffle:
+		idx = np.random.permutation(y.size)
+		X = X[idx]
+		y = y[idx]
+	skf = list(cross_validation.KFold(len(y),n_folds))
+
+	clfs = [RandomForestClassifier(n_estimators=250, n_jobs=-1, criterion='gini'),
+			RandomForestClassifier(n_estimators=250, n_jobs=-1, criterion='entropy'),
+			ExtraTreesClassifier(n_estimators=250, n_jobs=-1, criterion='gini'),
+			ExtraTreesClassifier(n_estimators=250, n_jobs=-1, criterion='entropy'),
+			GradientBoostingClassifier(learning_rate=0.05, subsample=0.5, max_depth=6, n_estimators=50)]
+
+	print "Creating train and test sets for blending."
+
+	dataset_blend_train = np.zeros((X.shape[0], len(clfs)))
+	dataset_blend_holdout = np.zeros((X_submission.shape[0], len(clfs)))
+	dataset_blend_test = np.zeros((test_data.shape[0], len(clfs)))
+
+	for j, clf in enumerate(clfs):
+		print "Classifier no: ", j + 1
+		print clf
+		dataset_blend_holdout_j = np.zeros((X_submission.shape[0], len(skf)))
+		dataset_blend_test_j = np.zeros((test_data.shape[0], len(skf)))
+		for i, (train, test) in enumerate(skf):
+			print "====Fold", i
+			X_train = X.iloc[train]
+			y_train = y[train]
+			X_test = X.iloc[test]
+			y_test = y[test]
+			clf.fit(X_train, y_train)
+			y_submission = clf.predict_proba(X_test)[:,1]
+			dataset_blend_train[test, j] = y_submission
+			dataset_blend_holdout_j[:, i] = clf.predict_proba(X_submission)[:,1]
+			dataset_blend_test_j[:, i] = clf.predict_proba(test_data)[:,1]
+		dataset_blend_holdout[:,j] = dataset_blend_holdout_j.mean(1)
+		dataset_blend_test[:,j] = dataset_blend_test_j.mean(1)
+
+	return dataset_blend_train, dataset_blend_holdout, dataset_blend_test
+
+
 

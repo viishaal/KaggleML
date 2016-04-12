@@ -4,6 +4,7 @@ from read_data import *
 import matplotlib.pyplot as plt
 import numpy as np
 from sklearn.ensemble import ExtraTreesClassifier
+from sklearn import cross_validation
 
 ## DRIVER CONFIG
 _TRAINING_FILE_NAME_ = "Data/data.csv"
@@ -12,7 +13,8 @@ _FIELDS_FILE_ = "Data/field_types.txt"
 _OUTPUT_FILE_NAME_ = "Submissions/{}_{}.csv"
 _OUTPUT_FILE_HEADER_ = ["Prediction"]
 
-_CROSS_VALIDATE_ = True
+_HOLDOUT_ = True
+_CROSS_VALIDATE_ = False
 _K_FOLDS_ = 10
 
 _NORMALIZE_ = False
@@ -22,6 +24,7 @@ _POLY_NUMERIC_VARIABLES_ = True
 _POLY_ALL_ = False
 
 
+_BLENDING_ = True         # choose one of blending and ensembling
 _CREATE_ENSEMBLE_ = False
 _MAIN_ESTIMATOR_ = "etc"
 
@@ -37,6 +40,11 @@ if __name__ == "__main__":
 		preprocess_data(train_data, _FIELDS_FILE_,_NORMALIZE_, _ONE_HOT_ENCODING_, _POLY_NUMERIC_VARIABLES_, None, None, None, _SPLIT_CATEGORICAL_)
 
 	#train_data = train_data.drop(['31','32','34','35','50'], axis=1)
+
+	if _BLENDING_ or _HOLDOUT_:
+		train_data, holdout, train_labels, holdout_labels = \
+					cross_validation.train_test_split(train_data, train_labels, test_size=0.2, random_state=88)
+
 	
 	if _CREATE_ENSEMBLE_:
 		train_data, train_labels, ensemble = md.create_ensemble(train_data, train_labels)
@@ -75,6 +83,10 @@ if __name__ == "__main__":
 	if _CREATE_ENSEMBLE_:
 		test_data = md.append_test_data(test_data, ensemble)
 
+	if _BLENDING_:
+		train_data, holdout, test_data = md.blend_models(_K_FOLDS_, train_data, train_labels, holdout, test_data)
+
+
 	## final steps
 	# reinstantiate
 	model = md._ESTIMATORS_META_[_MAIN_ESTIMATOR_]()
@@ -82,6 +94,14 @@ if __name__ == "__main__":
 	print "###############################################"
 	print "Trianing error rate:", err
 	print "###############################################"
+
+	if _BLENDING_ or _HOLDOUT_:
+		holdout_preds = model.predict(holdout)
+		holdout_acc = 1-md.evaluate(holdout_preds, holdout_labels.ravel())
+		print "###############################################"
+		print "Holdout error rate:", holdout_acc
+		print "###############################################"
+
 
 	preds = model.predict(test_data)
 	preds_df = pd.DataFrame(preds)
