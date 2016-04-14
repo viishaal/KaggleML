@@ -7,9 +7,24 @@ def read_data(file_name):
 	data = pd.read_csv(file_name)
 	return data
 
-def preprocess_data(data, params, train, transformers=None):
+def preprocess_data(data, test_data, params):
 
-	train_transformer = {}
+	print "train data shape ", data.shape
+	print "test_data shape", test_data.shape
+
+	#print data.iloc[0:9,:]
+	breakpoint = data.shape[0]
+	print "breakpoint: ", breakpoint
+
+	#print test_data.iloc[test_data.shape[0] - 1, :]
+	data = pd.concat([data, test_data])
+	print "after concat", data.shape
+
+	end = data.shape[0]
+	#print data.iloc[0:9,:]
+	print "end index:", end
+
+	data = data.reset_index(drop=True)
 
 	# remove blacklisted features
 	if params["black_list"] is not None:
@@ -51,17 +66,10 @@ def preprocess_data(data, params, train, transformers=None):
 		[categ.append(nf) for nf in new_categs]
 		print "New categorical variables added", data.shape
 
-	new_label_encoders = []
-	new_lb = []
-	new_poly = []
 
 	for i,c in enumerate(categ):
-		if not transformers:
-			le = preprocessing.LabelEncoder()
-			data[c] = le.fit_transform(data[c])
-			new_label_encoders.append(le)
-		else:
-			data[c] = transformers["label_encoders"][i].fit_transform(data[c])
+		le = preprocessing.LabelEncoder()
+		data[c] = le.fit_transform(data[c])
 
 
 	# Normalize numerical features
@@ -86,15 +94,11 @@ def preprocess_data(data, params, train, transformers=None):
 		print "Adding polynomial features: ", data.shape
 		poly_features = ['59', '60']
 		data_to_transform = data[poly_features]
-		if not transformers:
-			poly = preprocessing.PolynomialFeatures(2, include_bias=False)
-			transformed_df = poly.fit_transform(data_to_transform)
-			#print type(transformed_df), transformed_df.shape
-			new_poly = poly
-			data = data.drop(poly_features, axis=1) #redundant features
-		else:
-			transformed_df = transformers["poly_transformer"].fit_transform(data_to_transform)
-			data = data.drop(poly_features, axis=1) #redundant features
+
+		poly = preprocessing.PolynomialFeatures(2, include_bias=False)
+		transformed_df = poly.fit_transform(data_to_transform)
+		#print type(transformed_df), transformed_df.shape
+		data = data.drop(poly_features, axis=1) #redundant features
 
 		new_names = ["poly_"+str(i) for i in range(transformed_df.shape[1])]
 		[non_categ.append(n) for n in new_names]
@@ -108,21 +112,15 @@ def preprocess_data(data, params, train, transformers=None):
 	new_categ = []
 	if params["one_hot_encode"]:
 		one_hot_features = {}
-		i = 0
 		for c in categ:
 			#data = pd.concat([data, pd.get_dummies(data[c]).rename(columns=lambda x: c + str(x))], axis=1)
 			#df = pd.get_dummies(data[c]).rename(columns=lambda x: c + str(x))
-			if not transformers:
-				lb = preprocessing.LabelBinarizer()
-				mat = lb.fit_transform(data[c])
-				one_hot_features[c] = mat
-				new_lb.append(lb)
-				#print i, c, df.shape
-			else:
-				mat =transformers["label_binarizers"][i].transform(data[c])
-				one_hot_features[c] = mat
 
-			i = i + 1
+			lb = preprocessing.LabelBinarizer()
+			mat = lb.fit_transform(data[c])
+			one_hot_features[c] = mat
+			#print i, c, df.shape
+
 
 		data = data.drop(categ, axis=1)
 
@@ -135,18 +133,14 @@ def preprocess_data(data, params, train, transformers=None):
 		to_drop = []
 		col_names = data.columns
 		if params["remove_sparse_categorical"]:
-			if train:
-				for i in range(len(col_names)):
-					column = col_names[i]
-					if column not in non_categ:
-						freq = np.sum(data[column])
-						if freq < 60:
-							to_drop.append(column)
+			for i in range(len(col_names)):
+				column = col_names[i]
+				if column not in non_categ:
+					freq = np.sum(data[column])
+					if freq < params["sparse_threshold"]:
+						to_drop.append(column)
 
-				print "Number of features being dropped: ", len(to_drop)
-				train_transformer["sparse_categorical"] = to_drop
-			else:
-				to_drop = transformers["sparse_categorical"]
+			print "Number of features being dropped: ", len(to_drop)
 
 			data = data.drop(to_drop, axis=1)
 
@@ -157,12 +151,14 @@ def preprocess_data(data, params, train, transformers=None):
 	#imp = Imputer(missing_values='null', strategy='most_frequent', axis=0)
 	#imp.fit(data)
 
-	if train:
-		train_transformer["label_encoders"] = new_label_encoders
-		train_transformer["label_binarizers"] = new_lb
-		train_transformer["poly_transformer"] = new_poly
 
-	return data, train_transformer
+	train_data = data.iloc[0:breakpoint, :]
+	print "after breaking train: ", train_data.shape
+
+	test_data = data.iloc[breakpoint:end, :]
+	#print test_data.iloc[test_data.shape[0]-1,:]
+	print "after breaking test: ", test_data.shape
+	return train_data, test_data
 
 def write_preds_to_file(file_name, df, _header_):
 	df.to_csv(file_name, header=_header_, index_label="Id")

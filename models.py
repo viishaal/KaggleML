@@ -17,7 +17,7 @@ import time
 
 #### MODEL CONFIG
 _RF_NUM_ESTIMATORS_ = 400
-_ET_NUM_ESTIMATORS_ = 100
+_ET_NUM_ESTIMATORS_ = 250
 _GBM_ESTIMATORS_ = 1000
 
 _ADABOOST_NUM_ESTIMATORS_ = 10
@@ -186,9 +186,9 @@ def blend_models(n_folds, train_data, train_labels, holdout, test_data):
 			ExtraTreesClassifier(n_estimators=250, n_jobs=-1, criterion='entropy'),
 			GradientBoostingClassifier(learning_rate=0.05, subsample=0.5, max_depth=6, n_estimators=50),
 			discriminant_analysis.LinearDiscriminantAnalysis(),
-			discriminant_analysis.QuadraticDiscriminantAnalysis(),
-			MLPClassifier(algorithm='l-bfgs', alpha=1e-5, hidden_layer_sizes=(200,), verbose=False, random_state=55),
-			AdaBoostClassifier(_ADABOOST_BASE_ESTIMATOR_, n_estimators=_ADABOOST_NUM_ESTIMATORS_, algorithm=_ADABOOST_LALGO_, learning_rate=_ADABOOST_LEARNING_RATE_)]
+			discriminant_analysis.QuadraticDiscriminantAnalysis()]
+			#MLPClassifier(algorithm='l-bfgs', alpha=1e-5, hidden_layer_sizes=(200,), verbose=False, random_state=55),
+			#AdaBoostClassifier(_ADABOOST_BASE_ESTIMATOR_, n_estimators=_ADABOOST_NUM_ESTIMATORS_, algorithm=_ADABOOST_LALGO_, learning_rate=_ADABOOST_LEARNING_RATE_)]
 
 	print "Creating train and test sets for blending."
 

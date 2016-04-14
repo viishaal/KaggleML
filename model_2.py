@@ -19,13 +19,14 @@ data_loader_params = {
 	 					"one_hot_encode" : True, 
 	 					"poly_transform" : True, 
 	 					"split_categorical" : False,
+	 					"sparse_threshold" : 100,
 	 					"quantize" : True,
 	 					"remove_sparse_categorical": True,
-	 					"black_list": ['18','20','23','25','26','58']
+	 					"black_list":  None, #['18','20','23','25','26','58'],
 					 }
 
-_HOLDOUT_ = False
-_CROSS_VALIDATE_ = True
+_HOLDOUT_ = True
+_CROSS_VALIDATE_ = False
 _K_FOLDS_ = 10
 
 
@@ -41,8 +42,11 @@ if __name__ == "__main__":
 	train_labels = data.label
 	train_labels = train_labels.reshape(train_labels.size, 1)
 	train_data = data.drop("label", 1)
-	train_data, transformers = \
-		preprocess_data(train_data, data_loader_params, True)
+
+	test_data = read_data(_TEST_FILE_NAME_)
+
+	train_data, test_data = \
+		preprocess_data(train_data, test_data, data_loader_params)
 
 	#train_data = train_data.drop(['31','32','34','35','50'], axis=1)
 
@@ -76,12 +80,12 @@ if __name__ == "__main__":
 
 	# first cross-validate
 	model = md._ESTIMATORS_META_[_MAIN_ESTIMATOR_]()
-	if _CROSS_VALIDATE_:
+	if _CROSS_VALIDATE_ and not _BLENDING_:
 		md.cross_validate_model(train_data,train_labels, _K_FOLDS_, model)
 	
-	test_data = read_data(_TEST_FILE_NAME_)
-	test_data, _  = \
-	 preprocess_data(test_data, data_loader_params, False, transformers)
+
+	# test_data, _  = \
+	#  preprocess_data(test_data, data_loader_params, False, transformers)
 
 	#test_data = test_data.drop(['31','32','34','35','50'], axis=1)
 
