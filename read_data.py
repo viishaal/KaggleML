@@ -3,33 +3,36 @@ from sklearn import preprocessing
 import numpy as np
 from utils import *
 
-BLACKLIST = ['18','20','23','25','26','58']
-_QUANTIZE_ = True
-_REMOVE_SPARSE_CATEGORICAL_ = True
-
 def read_data(file_name):
 	data = pd.read_csv(file_name)
 	return data
 
-def preprocess_data(data, field_types_file, isNormalize, oneHot, polyTransform, label_encoders, label_binarizers, poly_transformer, split_categorical):
+def preprocess_data(data, params, train, transformers=None):
+
+	train_transformer = {}
 
 	# remove blacklisted features
-	data = data.drop(BLACKLIST, axis=1)
+	if params["black_list"] is not None:
+		data = data.drop(params["black_list"], axis=1)
 
 	# read filed_types file
-	ft = open(field_types_file, "r")
+	ft = open(params["ft_file"], "r")
 	categ = []      # list of categorical variables for transform
 	non_categ = []
 	for line in ft.readlines():
 		splits = line.split()
-		if splits[1] != "numeric" and splits[0] not in BLACKLIST:
-			categ.append(splits[0])
+		if splits[1] != "numeric":
+			if params["black_list"] is not None: 
+				if splits[0] not in params["black_list"]:
+					categ.append(splits[0])
+			else: 
+				categ.append(splits[0])
 
 	print "Processing categorical features", data.shape
 
 	# split categorical
 	new_categs = []
-	if split_categorical:
+	if params["split_categorical"]:
 		for c in categ:
 			splits = data[c].str.split("_")
 			if not pd.isnull(splits.str[1]).all():   ## dont add fields which dont split
@@ -53,12 +56,12 @@ def preprocess_data(data, field_types_file, isNormalize, oneHot, polyTransform, 
 	new_poly = []
 
 	for i,c in enumerate(categ):
-		if label_encoders == None:
+		if not transformers:
 			le = preprocessing.LabelEncoder()
 			data[c] = le.fit_transform(data[c])
 			new_label_encoders.append(le)
 		else:
-			data[c] = label_encoders[i].fit_transform(data[c])
+			data[c] = transformers["label_encoders"][i].fit_transform(data[c])
 
 
 	# Normalize numerical features
@@ -68,7 +71,7 @@ def preprocess_data(data, field_types_file, isNormalize, oneHot, polyTransform, 
 			non_categ.append(column)
 
 
-	if _QUANTIZE_:
+	if params["quantize"]:
 		# do something with 59 and 60
 		data["59p60"] = data["59"] + data["60"]
 		data["59m60"] = data["59"] - data["60"]
@@ -79,18 +82,18 @@ def preprocess_data(data, field_types_file, isNormalize, oneHot, polyTransform, 
 		data["60quant"] = binning(data["60"], 5, lab_2)
 		[non_categ.append(l) for l in ["59p60", "59m60", "59quant", "60quant"]]
 
-	if polyTransform:
+	if params["poly_transform"]:
 		print "Adding polynomial features: ", data.shape
 		poly_features = ['59', '60']
 		data_to_transform = data[poly_features]
-		if not poly_transformer:
+		if not transformers:
 			poly = preprocessing.PolynomialFeatures(2, include_bias=False)
 			transformed_df = poly.fit_transform(data_to_transform)
 			#print type(transformed_df), transformed_df.shape
 			new_poly = poly
 			data = data.drop(poly_features, axis=1) #redundant features
 		else:
-			transformed_df = poly_transformer.fit_transform(data_to_transform)
+			transformed_df = transformers["poly_transformer"].fit_transform(data_to_transform)
 			data = data.drop(poly_features, axis=1) #redundant features
 
 		new_names = ["poly_"+str(i) for i in range(transformed_df.shape[1])]
@@ -99,24 +102,24 @@ def preprocess_data(data, field_types_file, isNormalize, oneHot, polyTransform, 
 		print "Done adding polynomial features: ", data.shape
 
 
-	if isNormalize:
+	if params["normalize"]:
 		data[non_categ] = preprocessing.scale(data[non_categ])
 
 	new_categ = []
-	if oneHot:
+	if params["one_hot_encode"]:
 		one_hot_features = {}
 		i = 0
 		for c in categ:
 			#data = pd.concat([data, pd.get_dummies(data[c]).rename(columns=lambda x: c + str(x))], axis=1)
 			#df = pd.get_dummies(data[c]).rename(columns=lambda x: c + str(x))
-			if not label_binarizers:
+			if not transformers:
 				lb = preprocessing.LabelBinarizer()
 				mat = lb.fit_transform(data[c])
 				one_hot_features[c] = mat
 				new_lb.append(lb)
 				#print i, c, df.shape
 			else:
-				mat =label_binarizers[i].transform(data[c])
+				mat =transformers["label_binarizers"][i].transform(data[c])
 				one_hot_features[c] = mat
 
 			i = i + 1
@@ -127,29 +130,39 @@ def preprocess_data(data, field_types_file, isNormalize, oneHot, polyTransform, 
 			new_names = ["oh_"+c+"_"+str(i) for i in range(mat.shape[1])]
 			#print pd.DataFrame(mat, columns = new_names).shape
 			data = pd.concat([data, pd.DataFrame(mat, columns = new_names)], axis=1)
-			new_categ.append(new_names)
+			[new_categ.append(n) for n in new_names]
 
 		to_drop = []
 		col_names = data.columns
-		if _REMOVE_SPARSE_CATEGORICAL_:
-			for i in range(len(col_names)):
-				column = col_names[i]
-				if column not in non_categ:
-					freq = np.sum(data[column])
-					if freq < 60:
-						to_drop.append(column)
+		if params["remove_sparse_categorical"]:
+			if train:
+				for i in range(len(col_names)):
+					column = col_names[i]
+					if column not in non_categ:
+						freq = np.sum(data[column])
+						if freq < 60:
+							to_drop.append(column)
 
-			print "Number of features being dropped: ", len(to_drop)
+				print "Number of features being dropped: ", len(to_drop)
+				train_transformer["sparse_categorical"] = to_drop
+			else:
+				to_drop = transformers["sparse_categorical"]
+
 			data = data.drop(to_drop, axis=1)
 
-		categ = new_categ
-
+		categ = [c for c in new_categ if c not in to_drop]
 
 	print "Done processing categorical features", data.shape
 
 	#imp = Imputer(missing_values='null', strategy='most_frequent', axis=0)
 	#imp.fit(data)
-	return data, new_label_encoders, new_lb, new_poly
+
+	if train:
+		train_transformer["label_encoders"] = new_label_encoders
+		train_transformer["label_binarizers"] = new_lb
+		train_transformer["poly_transformer"] = new_poly
+
+	return data, train_transformer
 
 def write_preds_to_file(file_name, df, _header_):
 	df.to_csv(file_name, header=_header_, index_label="Id")

@@ -13,15 +13,20 @@ _FIELDS_FILE_ = "Data/field_types.txt"
 _OUTPUT_FILE_NAME_ = "Submissions/{}_{}.csv"
 _OUTPUT_FILE_HEADER_ = ["Prediction"]
 
+data_loader_params = {
+	 					"ft_file" : _FIELDS_FILE_,
+	 					"normalize" : False, 
+	 					"one_hot_encode" : True, 
+	 					"poly_transform" : True, 
+	 					"split_categorical" : False,
+	 					"quantize" : True,
+	 					"remove_sparse_categorical": True,
+	 					"black_list": ['18','20','23','25','26','58']
+					 }
+
 _HOLDOUT_ = False
 _CROSS_VALIDATE_ = True
 _K_FOLDS_ = 10
-
-_NORMALIZE_ = False
-_ONE_HOT_ENCODING_ = True
-_SPLIT_CATEGORICAL_ = False
-_POLY_NUMERIC_VARIABLES_ = True
-_POLY_ALL_ = False
 
 
 _BLENDING_ = False         # choose one of blending and ensembling
@@ -36,8 +41,8 @@ if __name__ == "__main__":
 	train_labels = data.label
 	train_labels = train_labels.reshape(train_labels.size, 1)
 	train_data = data.drop("label", 1)
-	train_data, les, lbs, poly = \
-		preprocess_data(train_data, _FIELDS_FILE_,_NORMALIZE_, _ONE_HOT_ENCODING_, _POLY_NUMERIC_VARIABLES_, None, None, None, _SPLIT_CATEGORICAL_)
+	train_data, transformers = \
+		preprocess_data(train_data, data_loader_params, True)
 
 	#train_data = train_data.drop(['31','32','34','35','50'], axis=1)
 
@@ -75,8 +80,8 @@ if __name__ == "__main__":
 		md.cross_validate_model(train_data,train_labels, _K_FOLDS_, model)
 	
 	test_data = read_data(_TEST_FILE_NAME_)
-	test_data, _ , _, _ = \
-	 preprocess_data(test_data, _FIELDS_FILE_, _NORMALIZE_, _ONE_HOT_ENCODING_, _POLY_NUMERIC_VARIABLES_, les, lbs, poly, _SPLIT_CATEGORICAL_)
+	test_data, _  = \
+	 preprocess_data(test_data, data_loader_params, False, transformers)
 
 	#test_data = test_data.drop(['31','32','34','35','50'], axis=1)
 
