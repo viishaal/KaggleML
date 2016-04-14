@@ -5,6 +5,7 @@ from utils import *
 
 BLACKLIST = ['18','20','23','25','26','58']
 _QUANTIZE_ = True
+_REMOVE_SPARSE_CATEGORICAL_ = True
 
 def read_data(file_name):
 	data = pd.read_csv(file_name)
@@ -76,6 +77,7 @@ def preprocess_data(data, field_types_file, isNormalize, oneHot, polyTransform, 
 
 		lab_2 = np.histogram(data["60"], bins=200)[0]
 		data["60quant"] = binning(data["60"], 5, lab_2)
+		[non_categ.append(l) for l in ["59p60", "59m60", "59quant", "60quant"]]
 
 	if polyTransform:
 		print "Adding polynomial features: ", data.shape
@@ -87,38 +89,61 @@ def preprocess_data(data, field_types_file, isNormalize, oneHot, polyTransform, 
 			#print type(transformed_df), transformed_df.shape
 			new_poly = poly
 			data = data.drop(poly_features, axis=1) #redundant features
-			data = pd.concat([data, pd.DataFrame(transformed_df)], axis=1)
 		else:
 			transformed_df = poly_transformer.fit_transform(data_to_transform)
 			data = data.drop(poly_features, axis=1) #redundant features
-			data = pd.concat([data, pd.DataFrame(transformed_df)], axis=1)
+
+		new_names = ["poly_"+str(i) for i in range(transformed_df.shape[1])]
+		[non_categ.append(n) for n in new_names]
+		data = pd.concat([data, pd.DataFrame(transformed_df, columns = new_names)], axis=1)
 		print "Done adding polynomial features: ", data.shape
 
 
 	if isNormalize:
 		data[non_categ] = preprocessing.scale(data[non_categ])
 
+	new_categ = []
 	if oneHot:
-		one_hot_features = []
+		one_hot_features = {}
 		i = 0
 		for c in categ:
-			if c!="23" and c!="58":
-				#data = pd.concat([data, pd.get_dummies(data[c]).rename(columns=lambda x: c + str(x))], axis=1)
-				#df = pd.get_dummies(data[c]).rename(columns=lambda x: c + str(x))
-				if not label_binarizers:
-					lb = preprocessing.LabelBinarizer()
-					mat = lb.fit_transform(data[c])
-					one_hot_features.append(mat)
-					new_lb.append(lb)
-					#print i, c, df.shape
-				else:
-					mat =label_binarizers[i].transform(data[c])
-					one_hot_features.append(mat)
+			#data = pd.concat([data, pd.get_dummies(data[c]).rename(columns=lambda x: c + str(x))], axis=1)
+			#df = pd.get_dummies(data[c]).rename(columns=lambda x: c + str(x))
+			if not label_binarizers:
+				lb = preprocessing.LabelBinarizer()
+				mat = lb.fit_transform(data[c])
+				one_hot_features[c] = mat
+				new_lb.append(lb)
+				#print i, c, df.shape
+			else:
+				mat =label_binarizers[i].transform(data[c])
+				one_hot_features[c] = mat
 
-				i = i + 1
+			i = i + 1
 
-		for mat in one_hot_features:
-			data = pd.concat([data, pd.DataFrame(mat)], axis=1)
+		data = data.drop(categ, axis=1)
+
+		for c, mat in one_hot_features.iteritems():
+			new_names = ["oh_"+c+"_"+str(i) for i in range(mat.shape[1])]
+			#print pd.DataFrame(mat, columns = new_names).shape
+			data = pd.concat([data, pd.DataFrame(mat, columns = new_names)], axis=1)
+			new_categ.append(new_names)
+
+		to_drop = []
+		col_names = data.columns
+		if _REMOVE_SPARSE_CATEGORICAL_:
+			for i in range(len(col_names)):
+				column = col_names[i]
+				if column not in non_categ:
+					freq = np.sum(data[column])
+					if freq < 60:
+						to_drop.append(column)
+
+			print "Number of features being dropped: ", len(to_drop)
+			data = data.drop(to_drop, axis=1)
+
+		categ = new_categ
+
 
 	print "Done processing categorical features", data.shape
 

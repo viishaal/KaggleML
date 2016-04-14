@@ -13,18 +13,18 @@ _FIELDS_FILE_ = "Data/field_types.txt"
 _OUTPUT_FILE_NAME_ = "Submissions/{}_{}.csv"
 _OUTPUT_FILE_HEADER_ = ["Prediction"]
 
-_HOLDOUT_ = True
-_CROSS_VALIDATE_ = False
+_HOLDOUT_ = False
+_CROSS_VALIDATE_ = True
 _K_FOLDS_ = 10
 
 _NORMALIZE_ = False
-_ONE_HOT_ENCODING_ = False
+_ONE_HOT_ENCODING_ = True
 _SPLIT_CATEGORICAL_ = False
 _POLY_NUMERIC_VARIABLES_ = True
 _POLY_ALL_ = False
 
 
-_BLENDING_ = True         # choose one of blending and ensembling
+_BLENDING_ = False         # choose one of blending and ensembling
 _CREATE_ENSEMBLE_ = False
 _MAIN_ESTIMATOR_ = "etc"
 

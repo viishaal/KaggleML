@@ -12,14 +12,15 @@ from sklearn.preprocessing import Imputer
 from sklearn import discriminant_analysis
 from sklearn.neural_network import MLPClassifier
 from sklearn.svm import SVC
+from sklearn.neighbors import KNeighborsClassifier
 import time
 
 #### MODEL CONFIG
 _RF_NUM_ESTIMATORS_ = 400
-_ET_NUM_ESTIMATORS_ = 250
+_ET_NUM_ESTIMATORS_ = 100
 _GBM_ESTIMATORS_ = 1000
 
-_ADABOOST_NUM_ESTIMATORS_ = 1000
+_ADABOOST_NUM_ESTIMATORS_ = 10
 _ADABOOST_LALGO_ = "SAMME"
 _ADABOOST_LEARNING_RATE_ = 1
 #_ADABOOST_BASE_ESTIMATOR_ = RandomForestClassifier(n_estimators=200,criterion="entropy",max_features=None,random_state=777,n_jobs=-1)
@@ -99,6 +100,9 @@ def nn():
 	clf = MLPClassifier(algorithm='l-bfgs', alpha=1e-5, hidden_layer_sizes=(200,), verbose=False, random_state=55)
 	return clf
 
+def knn(n_neighbors=5):
+	knn = KNeighborsClassifier(n_neighbors, weights="uniform", n_jobs=-1)
+	return knn
 
 ### add model function to this dictionary once you define it above
 _ESTIMATORS_META_ = {
@@ -106,10 +110,12 @@ _ESTIMATORS_META_ = {
 								"adaboost": ada_boost_classifier, 
 								"etc": extra_tree_classifier,
 								"rf": random_forest,
+								"logreg": logistic_regression_mle,
 								"neural": nn,
 								"lda": lda,
 								"qda": qda,
-								"gbr": gbr
+								"gbr": gbr,
+								"knn": knn
 					}
 
 
@@ -171,11 +177,18 @@ def blend_models(n_folds, train_data, train_labels, holdout, test_data):
 		y = y[idx]
 	skf = list(cross_validation.KFold(len(y),n_folds))
 
-	clfs = [RandomForestClassifier(n_estimators=250, n_jobs=-1, criterion='gini'),
+	clfs = [KNeighborsClassifier(weights="uniform", n_jobs=-1),
+			KNeighborsClassifier(weights="distance", n_jobs=-1),
+			#SVC(),
+			RandomForestClassifier(n_estimators=250, n_jobs=-1, criterion='gini'),
 			RandomForestClassifier(n_estimators=250, n_jobs=-1, criterion='entropy'),
 			ExtraTreesClassifier(n_estimators=250, n_jobs=-1, criterion='gini'),
 			ExtraTreesClassifier(n_estimators=250, n_jobs=-1, criterion='entropy'),
-			GradientBoostingClassifier(learning_rate=0.05, subsample=0.5, max_depth=6, n_estimators=50)]
+			GradientBoostingClassifier(learning_rate=0.05, subsample=0.5, max_depth=6, n_estimators=50),
+			discriminant_analysis.LinearDiscriminantAnalysis(),
+			discriminant_analysis.QuadraticDiscriminantAnalysis(),
+			MLPClassifier(algorithm='l-bfgs', alpha=1e-5, hidden_layer_sizes=(200,), verbose=False, random_state=55),
+			AdaBoostClassifier(_ADABOOST_BASE_ESTIMATOR_, n_estimators=_ADABOOST_NUM_ESTIMATORS_, algorithm=_ADABOOST_LALGO_, learning_rate=_ADABOOST_LEARNING_RATE_)]
 
 	print "Creating train and test sets for blending."
 
