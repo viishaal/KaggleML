@@ -19,9 +19,10 @@ data_loader_params = {
 	 					"one_hot_encode" : True, 
 	 					"poly_transform" : True, 
 	 					"split_categorical" : False,
-	 					"sparse_threshold" : 100,
 	 					"quantize" : True,
-	 					"remove_sparse_categorical": True,
+	 					"remove_sparse_categorical": False,
+	 					"merge_sparse": True,
+	 					"sparse_threshold" : 100,
 	 					"black_list":  ['18','20','23','25','26','58'],
 					 }
 

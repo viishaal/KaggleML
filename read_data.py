@@ -124,12 +124,27 @@ def preprocess_data(data, test_data, params):
 
 		data = data.drop(categ, axis=1)
 
+		# concatenate new matrices
 		for c, mat in one_hot_features.iteritems():
+
+			# merge sparse features
+			if params["merge_sparse"]:
+				col_sum = mat.sum(axis=0)
+				to_merge_cols = np.where(col_sum < params["sparse_threshold"])[0]
+				if len(to_merge_cols) > 0:
+					to_merge = mat[:, to_merge_cols]
+					to_merge = to_merge.sum(axis=1)
+					to_merge = to_merge.reshape(to_merge.shape[0], 1)
+					mat = np.delete(mat, to_merge_cols, axis=1)
+					mat = np.hstack((mat, to_merge))
+
+			# add new coloumn names and merge with origin data
 			new_names = ["oh_"+c+"_"+str(i) for i in range(mat.shape[1])]
 			#print pd.DataFrame(mat, columns = new_names).shape
 			data = pd.concat([data, pd.DataFrame(mat, columns = new_names)], axis=1)
 			[new_categ.append(n) for n in new_names]
 
+		# drop sparse features (use in case do not wish to merge)
 		to_drop = []
 		col_names = data.columns
 		if params["remove_sparse_categorical"]:
@@ -140,8 +155,8 @@ def preprocess_data(data, test_data, params):
 					if freq < params["sparse_threshold"]:
 						to_drop.append(column)
 
-			print "Number of features being dropped: ", len(to_drop)
 
+			print "Number of features being dropped: ", len(to_drop)
 			data = data.drop(to_drop, axis=1)
 
 		categ = [c for c in new_categ if c not in to_drop]
@@ -150,7 +165,6 @@ def preprocess_data(data, test_data, params):
 
 	#imp = Imputer(missing_values='null', strategy='most_frequent', axis=0)
 	#imp.fit(data)
-
 
 	train_data = data.iloc[0:breakpoint, :]
 	print "after breaking train: ", train_data.shape
@@ -162,3 +176,4 @@ def preprocess_data(data, test_data, params):
 
 def write_preds_to_file(file_name, df, _header_):
 	df.to_csv(file_name, header=_header_, index_label="Id")
+
