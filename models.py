@@ -10,7 +10,6 @@ from sklearn.ensemble import GradientBoostingRegressor
 from sklearn.ensemble import AdaBoostClassifier
 from sklearn.preprocessing import Imputer
 from sklearn import discriminant_analysis
-from sklearn.neural_network import MLPClassifier
 from sklearn.svm import SVC
 from sklearn.neighbors import KNeighborsClassifier
 import time
@@ -96,9 +95,6 @@ def svm():
 	svm = SVC();
 	return svm
 
-def nn():
-	clf = MLPClassifier(algorithm='l-bfgs', alpha=1e-5, hidden_layer_sizes=(200,), verbose=False, random_state=55)
-	return clf
 
 def knn(n_neighbors=5):
 	knn = KNeighborsClassifier(n_neighbors, weights="uniform", n_jobs=-1)
@@ -111,7 +107,6 @@ _ESTIMATORS_META_ = {
 								"etc": extra_tree_classifier,
 								"rf": random_forest,
 								"logreg": logistic_regression_mle,
-								"neural": nn,
 								"lda": lda,
 								"qda": qda,
 								"gbr": gbr,
