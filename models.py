@@ -17,10 +17,10 @@ import time
 
 #### MODEL CONFIG
 _RF_NUM_ESTIMATORS_ = 400
-_ET_NUM_ESTIMATORS_ = 250
+_ET_NUM_ESTIMATORS_ = 1
 _GBM_ESTIMATORS_ = 1000
 
-_ADABOOST_NUM_ESTIMATORS_ = 10
+_ADABOOST_NUM_ESTIMATORS_ = 30
 _ADABOOST_LALGO_ = "SAMME"
 _ADABOOST_LEARNING_RATE_ = 1
 #_ADABOOST_BASE_ESTIMATOR_ = RandomForestClassifier(n_estimators=200,criterion="entropy",max_features=None,random_state=777,n_jobs=-1)
@@ -41,7 +41,7 @@ def model_evaluate(model, test_data, test_labels):
 		preds[preds <= 0] = -1
 	return evaluate(preds.reshape(preds.size, 1), test_labels)
 
-def fit_model(model, train_data, train_labels, test_data, test_labels):
+def fit_model(model, train_data, train_labels, test_data=None, test_labels=None):
 	model.fit(train_data, train_labels.ravel())
 	if test_data is None or test_labels is None:
 		return model_evaluate(model, train_data, train_labels)

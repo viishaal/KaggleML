@@ -22,7 +22,7 @@ data_loader_params = {
 	 					"sparse_threshold" : 100,
 	 					"quantize" : True,
 	 					"remove_sparse_categorical": True,
-	 					"black_list":  None, #['18','20','23','25','26','58'],
+	 					"black_list":  ['18','20','23','25','26','58'],
 					 }
 
 _HOLDOUT_ = True
@@ -58,36 +58,12 @@ if __name__ == "__main__":
 	if _CREATE_ENSEMBLE_:
 		train_data, train_labels, ensemble = md.create_ensemble(train_data, train_labels)
 
-	# err, model = md._ESTIMATORS_META_[_MAIN_ESTIMATOR_](train_data, train_labels, train_data, train_labels)
-
-	## plot feature importance
-	# plt.close()
-	# names = train_data.columns
-	# print sorted(zip(map(lambda x: round(x, 4), model.feature_importances_), names), 
- #             reverse=True)
-
-	# feature_importance = model.feature_importances_
-	# feature_importance = 100.0 * (feature_importance / feature_importance.max())
-	# sorted_idx = np.argsort(feature_importance)
-	# pos = np.arange(sorted_idx.shape[0]) + .5
-	# plt.barh(pos, feature_importance[sorted_idx], align='center')
-	# plt.yticks(pos, names[sorted_idx])
-	# plt.title("RF Feature map")
-	# plt.xlabel("importance")
-	# plt.ylabel("fname")
-	# #plt.show()
-	# plt.savefig("figs/rf_feature_imp.png", format="png")
 
 	# first cross-validate
 	model = md._ESTIMATORS_META_[_MAIN_ESTIMATOR_]()
 	if _CROSS_VALIDATE_ and not _BLENDING_:
 		md.cross_validate_model(train_data,train_labels, _K_FOLDS_, model)
 	
-
-	# test_data, _  = \
-	#  preprocess_data(test_data, data_loader_params, False, transformers)
-
-	#test_data = test_data.drop(['31','32','34','35','50'], axis=1)
 
 	if _CREATE_ENSEMBLE_:
 		test_data = md.append_test_data(test_data, ensemble)
@@ -99,7 +75,7 @@ if __name__ == "__main__":
 	## final steps
 	# reinstantiate
 	model = md._ESTIMATORS_META_[_MAIN_ESTIMATOR_]()
-	err = md.fit_model(model, train_data, train_labels, None, None)
+	err = md.fit_model(model, train_data, train_labels)
 	print "###############################################"
 	print "Trianing error rate:", err
 	print "###############################################"
@@ -111,6 +87,13 @@ if __name__ == "__main__":
 		print "Holdout error rate:", holdout_acc
 		print "###############################################"
 
+		## now re-instantiate and train on concatenated holdout + train
+		train_data = pd.concat([train_data, holdout], axis=0)
+		train_labels = np.concatenate([train_labels, holdout_labels], axis=0)
+
+		model = md._ESTIMATORS_META_[_MAIN_ESTIMATOR_]()
+		md.fit_model(model, train_data, train_labels)
+
 
 	preds = model.predict(test_data)
 	preds_df = pd.DataFrame(preds)
@@ -119,4 +102,23 @@ if __name__ == "__main__":
 
 	output_fname = _OUTPUT_FILE_NAME_.format(_MAIN_ESTIMATOR_, int(time.time()))
 	write_preds_to_file(output_fname, preds_df, _OUTPUT_FILE_HEADER_)
+
+	# plot feature importance
+	if _MAIN_ESTIMATOR_ == "etc" or _MAIN_ESTIMATOR_ == "rf":
+		plt.close()
+		names = train_data.columns
+		print sorted(zip(map(lambda x: round(x, 4), model.feature_importances_), names), 
+	             reverse=True)
+
+		feature_importance = model.feature_importances_
+		feature_importance = 100.0 * (feature_importance / feature_importance.max())
+		sorted_idx = np.argsort(feature_importance)
+		pos = np.arange(sorted_idx.shape[0]) + .5
+		plt.barh(pos, feature_importance[sorted_idx], align='center')
+		plt.yticks(pos, names[sorted_idx])
+		plt.title("RF Feature map")
+		plt.xlabel("importance")
+		plt.ylabel("fname")
+		#plt.show()
+		plt.savefig("figs/rf_feature_imp.png", format="png")
 
