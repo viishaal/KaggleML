@@ -2,6 +2,7 @@ import pandas as pd
 from sklearn import preprocessing
 import numpy as np
 from utils import *
+from sklearn.decomposition import NMF, LatentDirichletAllocation
 
 def read_data(file_name):
 	data = pd.read_csv(file_name)
@@ -83,19 +84,49 @@ def preprocess_data(data, test_data, params):
 		# do something with 59 and 60
 		data["59p60"] = data["59"] + data["60"]
 		data["59m60"] = data["59"] - data["60"]
-		lab_1 = np.histogram(data["59"], bins=200)[0]
-		data["59quant"] = binning(data["59"], 5, lab_1)
+		data["59d60"] = data["59"] / (data["60"] + 1 - np.min(data["60"]))
 
-		lab_2 = np.histogram(data["60"], bins=200)[0]
-		data["60quant"] = binning(data["60"], 5, lab_2)
-		[non_categ.append(l) for l in ["59p60", "59m60", "59quant", "60quant"]]
+		sq59_p_sq60 = ( data["59"] ** 2 ) +  ( data["60"] ** 2 )
+		#data["59sq_p_60sq"] = ( data["59"] ** 2 ) +  ( data["60"] ** 2 )
+		#data["59sq_m_60sq"] = ( data["59"] ** 2 ) -  ( data["60"] ** 2 )
+		[non_categ.append(l) for l in ["59p60", "59m60", "59d60"]]
+		#[non_categ.append(l) for l in ["59sq_p_60sq", "59sq_m_60sq"]]
+
+		# log features
+
+		data["59log"] = np.log(data["59"] + 1 - np.min(data["59"])).astype("float64")
+		data["60log"] = np.log(np.absolute(data["60"]) + 1 - np.min(data["60"])).astype("float64")
+		data["59sq_p_60sqlog"] = np.log(sq59_p_sq60 + 1 - np.min(sq59_p_sq60)).astype("float64")
+		#non_categ.append("59sq_p_60sqlog")
+		[non_categ.append(l) for l in ["50log", "60log", "59sq_p_60sqlog"]]
+
+
+		data["59sqrt"] = np.sqrt(data["59"] + 1 - np.min(data["59"]))
+		data["60sqrt"] = np.sqrt(data["60"] + 1 - np.min(data["60"]))
+		[non_categ.append(l) for l in ["59sqrt", "60sqrt"]]
+		
+
+
+		bins = [150,200,250]
+		for binw in bins:
+			lab_1 = np.histogram(data["59"], bins=binw)[0]
+			name1 = "59quant_{}".format(binw)
+			data[name1] = binning(data["59"], 5, lab_1)
+
+			lab_2 = np.histogram(data["60"], bins=binw)[0]
+			name2 = "60quant_{}".format(binw)
+			data["60quant_{}".format(binw)] = binning(data["60"], 5, lab_2)
+
+			non_categ.append(name1)
+			non_categ.append(name2)
+
 
 	if params["poly_transform"]:
 		print "Adding polynomial features: ", data.shape
 		poly_features = ['59', '60']
 		data_to_transform = data[poly_features]
 
-		poly = preprocessing.PolynomialFeatures(2, include_bias=False)
+		poly = preprocessing.PolynomialFeatures(3, include_bias=False)
 		transformed_df = poly.fit_transform(data_to_transform)
 		#print type(transformed_df), transformed_df.shape
 		data = data.drop(poly_features, axis=1) #redundant features
@@ -111,6 +142,7 @@ def preprocess_data(data, test_data, params):
 
 	new_categ = []
 	if params["one_hot_encode"]:
+		print "One hot encoding:", data.shape
 		one_hot_features = {}
 		for c in categ:
 			#data = pd.concat([data, pd.get_dummies(data[c]).rename(columns=lambda x: c + str(x))], axis=1)
@@ -160,6 +192,24 @@ def preprocess_data(data, test_data, params):
 			data = data.drop(to_drop, axis=1)
 
 		categ = [c for c in new_categ if c not in to_drop]
+		print "One hot encoding DONE:", data.shape
+
+		if params["nmf"]:
+			print "Adding NMF features: ", data.shape
+			if params["nmf_read"]:
+				transformed_df = pd.read_csv(params["nmf_out"])
+				print transformed_df.shape
+				data = pd.concat([data, transformed_df], axis=1)
+			else:
+				nmf_features = data[categ]
+				model1 = NMF(n_components=nmf_features.shape[1], init='nndsvd', random_state=0)
+				bin2 = model1.fit_transform(nmf_features.transpose())
+				model1.reconstruction_err_ 
+				transformed = (model1.components_).transpose()
+				transformed_df = pd.DataFrame(transformed)
+				print type(transformed_df), transformed_df.columns
+				transformed_df.to_csv(params["nmf_out"])
+				data = data.join(transformed_df)
 
 	print "Done processing categorical features", data.shape
 

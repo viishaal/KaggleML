@@ -6,6 +6,8 @@ import numpy as np
 from sklearn.ensemble import ExtraTreesClassifier
 from sklearn import cross_validation
 
+_TEST_MODE_ = False    # code correctness mode (uses only 100 rows of data to train)
+
 ## DRIVER CONFIG
 _TRAINING_FILE_NAME_ = "Data/data.csv"
 _TEST_FILE_NAME_ = "Data/quiz.csv"
@@ -24,6 +26,9 @@ data_loader_params = {
 	 					"merge_sparse": True,
 	 					"sparse_threshold" : 100,
 	 					"black_list":  ['18','20','23','25','26','58'],
+	 					"nmf": True,
+	 					"nmf_out":"nmf_features",
+	 					"nmf_read": True
 					 }
 
 _HOLDOUT_ = True
@@ -31,20 +36,25 @@ _CROSS_VALIDATE_ = False
 _K_FOLDS_ = 10
 
 
-_BLENDING_ = False         # choose one of blending and ensembling
+_BLENDING_ = True         # choose one of blending and ensembling
 _CREATE_ENSEMBLE_ = False
 _MAIN_ESTIMATOR_ = "etc"
+
+_CONCAT_INIT_DATA_IN_BLENDER_ = True
 
 
 if __name__ == "__main__":
 	data = read_data(_TRAINING_FILE_NAME_)
+	test_data = read_data(_TEST_FILE_NAME_)
+
+	if _TEST_MODE_:
+		data = data.iloc[0:100,:]
+		test_data = test_data.iloc[0:10,:]
 	#print data.describe()
 
 	train_labels = data.label
 	train_labels = train_labels.reshape(train_labels.size, 1)
 	train_data = data.drop("label", 1)
-
-	test_data = read_data(_TEST_FILE_NAME_)
 
 	train_data, test_data = \
 		preprocess_data(train_data, test_data, data_loader_params)
@@ -70,7 +80,17 @@ if __name__ == "__main__":
 		test_data = md.append_test_data(test_data, ensemble)
 
 	if _BLENDING_:
-		train_data, holdout, test_data = md.blend_models(_K_FOLDS_, train_data, train_labels, holdout, test_data)
+		train_data_blended, holdout_blended, test_data_blended = md.blend_models(_K_FOLDS_, train_data, train_labels, holdout, test_data)
+		if _CONCAT_INIT_DATA_IN_BLENDER_:
+			print "Blending with original dataset:", train_data.shape
+			train_data = pd.concat([train_data, train_data_blended], axis = 1)
+			holdout = pd.concat([holdout, holdout_blended], axis = 1)
+			test_data = pd.concat([test_data, test_data_blended], axis = 1)
+			print "Blending DONE with original dataset:", train_data.shape
+		else:
+			train_data = train_data_blended
+			holdout = holdout_blended
+			test_data = test_data_blended
 
 
 	## final steps
@@ -78,6 +98,7 @@ if __name__ == "__main__":
 	model = md._ESTIMATORS_META_[_MAIN_ESTIMATOR_]()
 	err = md.fit_model(model, train_data, train_labels)
 	print "###############################################"
+	print "MODEL:", model
 	print "Trianing error rate:", err
 	print "###############################################"
 
@@ -102,24 +123,26 @@ if __name__ == "__main__":
 	#preds.columns = ['Id', 'Prediction']
 
 	output_fname = _OUTPUT_FILE_NAME_.format(_MAIN_ESTIMATOR_, int(time.time()))
-	write_preds_to_file(output_fname, preds_df, _OUTPUT_FILE_HEADER_)
 
-	# plot feature importance
-	if _MAIN_ESTIMATOR_ == "etc" or _MAIN_ESTIMATOR_ == "rf":
-		plt.close()
-		names = train_data.columns
-		print sorted(zip(map(lambda x: round(x, 4), model.feature_importances_), names), 
-	             reverse=True)
+	if not _TEST_MODE_:  # write to disk if not in test mode
+		write_preds_to_file(output_fname, preds_df, _OUTPUT_FILE_HEADER_)
 
-		feature_importance = model.feature_importances_
-		feature_importance = 100.0 * (feature_importance / feature_importance.max())
-		sorted_idx = np.argsort(feature_importance)
-		pos = np.arange(sorted_idx.shape[0]) + .5
-		plt.barh(pos, feature_importance[sorted_idx], align='center')
-		plt.yticks(pos, names[sorted_idx])
-		plt.title("RF Feature map")
-		plt.xlabel("importance")
-		plt.ylabel("fname")
-		#plt.show()
-		plt.savefig("figs/rf_feature_imp.png", format="png")
+		# plot feature importance
+		if _MAIN_ESTIMATOR_ == "etc" or _MAIN_ESTIMATOR_ == "rf":
+			plt.close()
+			names = train_data.columns
+			print sorted(zip(map(lambda x: round(x, 4), model.feature_importances_), names), 
+		             reverse=True)
+
+			feature_importance = model.feature_importances_
+			feature_importance = 100.0 * (feature_importance / feature_importance.max())
+			sorted_idx = np.argsort(feature_importance)
+			pos = np.arange(sorted_idx.shape[0]) + .5
+			plt.barh(pos, feature_importance[sorted_idx], align='center')
+			plt.yticks(pos, names[sorted_idx])
+			plt.title("RF Feature map")
+			plt.xlabel("importance")
+			plt.ylabel("fname")
+			#plt.show()
+			plt.savefig("figs/rf_feature_imp.png", format="png")
 
