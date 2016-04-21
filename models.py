@@ -210,7 +210,7 @@ def blend_models(n_folds, train_data, train_labels, holdout, test_data):
 		dataset_blend_holdout[:,j] = dataset_blend_holdout_j.mean(1)
 		dataset_blend_test[:,j] = dataset_blend_test_j.mean(1)
 
-	return dataset_blend_train, dataset_blend_holdout, dataset_blend_test
+	return pd.DataFrame(dataset_blend_train), pd.DataFrame(dataset_blend_holdout), pd.DataFrame(dataset_blend_test)
 
 
 

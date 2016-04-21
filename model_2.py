@@ -43,12 +43,20 @@ _MAIN_ESTIMATOR_ = "etc"
 _CONCAT_INIT_DATA_IN_BLENDER_ = True
 
 
+
+def concatenate_blended_frames(train_data, train_data_blended):
+	train_data = train_data.reset_index(drop=True)
+	train_data_blended = train_data_blended.reset_index(drop=True)
+	train_data = pd.concat([train_data, train_data_blended], axis = 1)
+	return train_data
+
+
 if __name__ == "__main__":
 	data = read_data(_TRAINING_FILE_NAME_)
 	test_data = read_data(_TEST_FILE_NAME_)
 
 	if _TEST_MODE_:
-		data = data.iloc[0:100,:]
+		data = data.iloc[0:10000,:]
 		test_data = test_data.iloc[0:10,:]
 	#print data.describe()
 
@@ -82,11 +90,19 @@ if __name__ == "__main__":
 	if _BLENDING_:
 		train_data_blended, holdout_blended, test_data_blended = md.blend_models(_K_FOLDS_, train_data, train_labels, holdout, test_data)
 		if _CONCAT_INIT_DATA_IN_BLENDER_:
-			print "Blending with original dataset:", train_data.shape
-			train_data = pd.concat([train_data, train_data_blended], axis = 1)
-			holdout = pd.concat([holdout, holdout_blended], axis = 1)
-			test_data = pd.concat([test_data, test_data_blended], axis = 1)
+			print "Blending with original dataset:", train_data.shape, train_data_blended.shape
+			train_data = concatenate_blended_frames(train_data, train_data_blended)
+			#train_data = train_data.join(train_data_blended)
 			print "Blending DONE with original dataset:", train_data.shape
+
+			print "Blending with Holdout set:", holdout.shape, holdout_blended.shape
+			holdout = concatenate_blended_frames(holdout, holdout_blended)
+			print "Blending DONE with Holdout set:", holdout.shape
+
+			print "Blending with Test set:", test_data.shape, test_data_blended.shape
+			test_data = concatenate_blended_frames(test_data, test_data_blended)
+			print "Blending with Test set:", test_data.shape
+			
 		else:
 			train_data = train_data_blended
 			holdout = holdout_blended
