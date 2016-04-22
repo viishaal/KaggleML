@@ -1,6 +1,6 @@
 import time
 
-_SUBMISSIONS_TO_VOTE_ = ["1459491151.csv", "1459456172.csv", "1459594517.csv"]
+_SUBMISSIONS_TO_VOTE_ = ["adaboost_1461223085.csv", "etc_1461280206.csv", "etc_1461332862.csv"]
 _OUTPUT_FILE_ = 'Submissions/voted_{}.csv'
 
 if __name__ == "__main__":

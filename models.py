@@ -16,7 +16,7 @@ import time
 
 #### MODEL CONFIG
 _RF_NUM_ESTIMATORS_ = 400
-_ET_NUM_ESTIMATORS_ = 50
+_ET_NUM_ESTIMATORS_ = 300
 _GBM_ESTIMATORS_ = 1000
 
 _ADABOOST_NUM_ESTIMATORS_ = 100
@@ -158,7 +158,7 @@ def append_test_data(test_data, ensemble):
 	#test_data = pd.concat([pd.DataFrame(preds_lda), pd.DataFrame(preds_logreg), pd.DataFrame(preds_qda), pd.DataFrame(preds_svm), pd.DataFrame(preds_rf)], axis='1')
 	return test_data
 
-def blend_models(n_folds, train_data, train_labels, holdout, test_data):
+def blend_models(n_folds, train_data, train_labels, holdout, test_data, test_mode):
 	np.random.seed(0) # seed to shuffle the train set
 
 	shuffle = False
@@ -172,9 +172,12 @@ def blend_models(n_folds, train_data, train_labels, holdout, test_data):
 		y = y[idx]
 	skf = list(cross_validation.KFold(len(y),n_folds))
 
-	clfs = [KNeighborsClassifier(weights="uniform", n_jobs=-1),
+	if test_mode:
+		clfs = [KNeighborsClassifier(weights="uniform", n_jobs=-1)]
+	else:
+		clfs = [KNeighborsClassifier(weights="uniform", n_jobs=-1),
 			KNeighborsClassifier(weights="distance", n_jobs=-1),
-			#SVC(),
+			SVC(),
 			RandomForestClassifier(n_estimators=250, n_jobs=-1, criterion='gini'),
 			RandomForestClassifier(n_estimators=250, n_jobs=-1, criterion='entropy'),
 			ExtraTreesClassifier(n_estimators=250, n_jobs=-1, criterion='gini'),

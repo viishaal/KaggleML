@@ -3,6 +3,7 @@ from sklearn import preprocessing
 import numpy as np
 from utils import *
 from sklearn.decomposition import NMF, LatentDirichletAllocation
+from sklearn.decomposition import PCA
 
 def read_data(file_name):
 	data = pd.read_csv(file_name)
@@ -98,7 +99,7 @@ def preprocess_data(data, test_data, params):
 		data["60log"] = np.log(np.absolute(data["60"]) + 1 - np.min(data["60"])).astype("float64")
 		data["59sq_p_60sqlog"] = np.log(sq59_p_sq60 + 1 - np.min(sq59_p_sq60)).astype("float64")
 		#non_categ.append("59sq_p_60sqlog")
-		[non_categ.append(l) for l in ["50log", "60log", "59sq_p_60sqlog"]]
+		[non_categ.append(l) for l in ["59log", "60log", "59sq_p_60sqlog"]]
 
 
 		data["59sqrt"] = np.sqrt(data["59"] + 1 - np.min(data["59"]))
@@ -130,6 +131,7 @@ def preprocess_data(data, test_data, params):
 		transformed_df = poly.fit_transform(data_to_transform)
 		#print type(transformed_df), transformed_df.shape
 		data = data.drop(poly_features, axis=1) #redundant features
+		[non_categ.remove(l) for l in poly_features]
 
 		new_names = ["poly_"+str(i) for i in range(transformed_df.shape[1])]
 		[non_categ.append(n) for n in new_names]
@@ -206,9 +208,21 @@ def preprocess_data(data, test_data, params):
 				model1.reconstruction_err_ 
 				transformed = (model1.components_).transpose()
 				transformed_df = pd.DataFrame(transformed)
-				print type(transformed_df), transformed_df.columns
 				transformed_df.to_csv(params["nmf_out"])
 				data = data.join(transformed_df)
+
+	pca_train_data, pca_test_data = None, None
+	if params["return_pca"]:
+		pca = PCA()
+		pca_features = data[categ]
+		pca.fit(pca_features)
+		components = pca.components_
+		print "PCA components: ", components.shape
+		print pca.explained_variance_
+		transformed_pca = np.dot(pca_features, components.T)
+		transformed_pca = data[non_categ].join(pd.DataFrame(transformed_pca))
+		pca_train_data = transformed_pca.iloc[0:breakpoint, :]
+		pca_test_data = transformed_pca.iloc[breakpoint:end, :]
 
 	print "Done processing categorical features", data.shape
 
@@ -221,7 +235,7 @@ def preprocess_data(data, test_data, params):
 	test_data = data.iloc[breakpoint:end, :]
 	#print test_data.iloc[test_data.shape[0]-1,:]
 	print "after breaking test: ", test_data.shape
-	return train_data, test_data
+	return train_data, test_data, pca_train_data, pca_test_data
 
 def write_preds_to_file(file_name, df, _header_):
 	df.to_csv(file_name, header=_header_, index_label="Id")

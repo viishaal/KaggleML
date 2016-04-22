@@ -27,21 +27,23 @@ data_loader_params = {
 	 					"sparse_threshold" : 100,
 	 					"black_list":  ['18','20','23','25','26','58'],
 	 					"nmf": True,
-	 					"nmf_out":"nmf_features",
-	 					"nmf_read": True
+	 					"nmf_out": "nmf_features",
+	 					"nmf_read": True,
+	 					"return_pca": False
 					 }
 
 _HOLDOUT_ = True
 _CROSS_VALIDATE_ = False
 _K_FOLDS_ = 10
 
+_ADD_PCA_FEATURE_ = False
+_SAVE_BLENDED_ = True
 
 _BLENDING_ = True         # choose one of blending and ensembling
 _CREATE_ENSEMBLE_ = False
-_MAIN_ESTIMATOR_ = "adaboost"
+_MAIN_ESTIMATOR_ = "etc"
 
 _CONCAT_INIT_DATA_IN_BLENDER_ = True
-
 
 
 def concatenate_blended_frames(train_data, train_data_blended):
@@ -56,22 +58,28 @@ if __name__ == "__main__":
 	test_data = read_data(_TEST_FILE_NAME_)
 
 	if _TEST_MODE_:
-		data = data.iloc[0:10000,:]
-		test_data = test_data.iloc[0:10,:]
+		data = data.iloc[0:1000,:]
+		test_data = test_data.iloc[0:100,:]
 	#print data.describe()
 
 	train_labels = data.label
 	train_labels = train_labels.reshape(train_labels.size, 1)
 	train_data = data.drop("label", 1)
 
-	train_data, test_data = \
+	train_data, test_data, pca_train, pca_test = \
 		preprocess_data(train_data, test_data, data_loader_params)
 
 	#train_data = train_data.drop(['31','32','34','35','50'], axis=1)
 
 	if _BLENDING_ or _HOLDOUT_:
-		train_data, holdout, train_labels, holdout_labels = \
-					cross_validation.train_test_split(train_data, train_labels, test_size=0.2, random_state=88)
+		indices = np.arange(train_data.shape[0])
+		train_data, holdout, train_labels, holdout_labels, idx, idy = \
+					cross_validation.train_test_split(train_data, train_labels, indices, test_size=0.2, random_state=88)
+
+		if _ADD_PCA_FEATURE_:
+			pca_holdout = pca_train.iloc[idy, :]
+			pca_train_data = pca_train.iloc[idx, :]
+			print "PCA shape: ", pca_holdout.shape, pca_train.shape
 
 	
 	if _CREATE_ENSEMBLE_:
@@ -88,7 +96,18 @@ if __name__ == "__main__":
 		test_data = md.append_test_data(test_data, ensemble)
 
 	if _BLENDING_:
-		train_data_blended, holdout_blended, test_data_blended = md.blend_models(_K_FOLDS_, train_data, train_labels, holdout, test_data)
+		train_data_blended, holdout_blended, test_data_blended = md.blend_models(_K_FOLDS_, train_data, train_labels, holdout, test_data, _TEST_MODE_)
+		
+		if _ADD_PCA_FEATURE_:
+			pca_train_blended, pca_holdout_blended, pca_test_blended = md.blend_models(_K_FOLDS_, pca_train_data, train_labels, pca_holdout, pca_test, _TEST_MODE_)
+			#print pca_train_blended.shape, pca_holdout_blended.shape, pca_test_blended.shape
+			# concate blended models
+			train_data_blended = pd.concat([train_data_blended, pca_train_blended], axis = 1)
+			holdout_blended = pd.concat([holdout_blended, pca_holdout_blended], axis=1)
+			test_data_blended = pd.concat([test_data_blended, pca_test_blended], axis=1)
+
+		#print train_data_blended.shape, holdout_blended.shape, test_data_blended.shape
+
 		if _CONCAT_INIT_DATA_IN_BLENDER_:
 			print "Blending with original dataset:", train_data.shape, train_data_blended.shape
 			train_data = concatenate_blended_frames(train_data, train_data_blended)
@@ -108,7 +127,16 @@ if __name__ == "__main__":
 			holdout = holdout_blended
 			test_data = test_data_blended
 
-		train_data.to_csv("blended_data.csv")
+		if _SAVE_BLENDED_:
+			train_to_save = train_data.copy(deep=True)
+			train_to_save["label"] = train_labels
+			train_to_save.to_csv("blended_train_data.csv")
+
+			holdout_to_save = holdout.copy(deep=True)
+			holdout_to_save["label"] = holdout_labels
+			holdout_to_save.to_csv("blended_holdout_data.csv")
+
+			test_data.to_csv("blended_test_data.csv")
 
 
 	## final steps
