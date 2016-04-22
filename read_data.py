@@ -198,7 +198,6 @@ def preprocess_data(data, test_data, params):
 			print "Adding NMF features: ", data.shape
 			if params["nmf_read"]:
 				transformed_df = pd.read_csv(params["nmf_out"])
-				print transformed_df.shape
 				data = pd.concat([data, transformed_df], axis=1)
 			else:
 				nmf_features = data[categ]

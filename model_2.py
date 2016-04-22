@@ -38,7 +38,7 @@ _K_FOLDS_ = 10
 
 _BLENDING_ = True         # choose one of blending and ensembling
 _CREATE_ENSEMBLE_ = False
-_MAIN_ESTIMATOR_ = "etc"
+_MAIN_ESTIMATOR_ = "adaboost"
 
 _CONCAT_INIT_DATA_IN_BLENDER_ = True
 
@@ -107,6 +107,8 @@ if __name__ == "__main__":
 			train_data = train_data_blended
 			holdout = holdout_blended
 			test_data = test_data_blended
+
+		train_data.to_csv("blended_data.csv")
 
 
 	## final steps
