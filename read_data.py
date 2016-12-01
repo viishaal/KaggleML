@@ -6,10 +6,52 @@ from sklearn.decomposition import NMF, LatentDirichletAllocation
 from sklearn.decomposition import PCA
 
 def read_data(file_name):
+	"""
+	Function to read the data file into the memory
+
+	Args:
+		file_name: name/path to the file to be read into the memory 
+
+	Returns:
+		data: pandas dataframe containing all the data
+
+	"""
+
 	data = pd.read_csv(file_name)
 	return data
 
 def preprocess_data(data, test_data, params):
+	"""
+	Preprocess the training and the test data based on the given parameters
+
+	Args:
+		data: training data as pandas dataframe
+		test_data: test_data as pandas dataframe
+		params: map which specifies the parameters and options/switches to process the dataset before blending/training
+			params = {
+	 					"ft_file" : file containing information about the fields read
+	 					"normalize" : 
+	 					"one_hot_encode" : one hot encoding of categorical features
+	 					"poly_transform" : add polynomial features
+	 					"split_categorical" : split categorical features
+	 					"quantize" : bins numeric features
+	 					"remove_sparse_categorical": remove sparse categorical features based on sparse threshold
+	 					"merge_sparse": merges sparse features instead of removing them
+	 					"sparse_threshold" : 100,
+	 					"black_list":  list of features to remove from the dataset
+	 					"nmf": perform Non-negative Matrix Factorization
+	 					"nmf_out": NMF output file name
+	 					"nmf_read": Read NMF features from a file on disk
+	 					"return_pca": perform PCA on the training data
+			}
+
+	Returns:
+		train_data: training data
+		test_data:  test data
+		pca_train_data: pca transformation of training data
+		pca_test_data: pca transformation of test data
+
+	"""
 
 	print "train data shape ", data.shape
 	print "test_data shape", test_data.shape
@@ -217,8 +259,11 @@ def preprocess_data(data, test_data, params):
 		pca_features = data[categ]
 		pca.fit(pca_features)
 		components = pca.components_
+
+		## print information
 		print "PCA components: ", components.shape
 		print pca.explained_variance_
+
 		transformed_pca = np.dot(pca_features, components.T)
 		transformed_pca = data[non_categ].join(pd.DataFrame(transformed_pca))
 		pca_train_data = transformed_pca.iloc[0:breakpoint, :]
@@ -234,9 +279,25 @@ def preprocess_data(data, test_data, params):
 
 	test_data = data.iloc[breakpoint:end, :]
 	#print test_data.iloc[test_data.shape[0]-1,:]
-	print "after breaking test: ", test_data.shape
 	return train_data, test_data, pca_train_data, pca_test_data
 
 def write_preds_to_file(file_name, df, _header_):
+	"""
+		Writes a kaggle style submission file with headers in csv format
+
+		Id,Predictions
+		1,0
+		2,1
+		...
+
+	Args:
+		file_name: output file name
+		df: output dataframe to write as csv
+
+	Returns:
+		None
+
+	"""
+
 	df.to_csv(file_name, header=_header_, index_label="Id")
 

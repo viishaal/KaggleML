@@ -1,0 +1,14 @@
+This is the test bed which was used to build algorithms/models for the in-class Kaggle competition COMS-4772
+
+The final algorithm that worked used feature blending method to generate additional features to train final classifiers. Blending procedure is explained later.
+read_data has functionalities to provide NMF, PCA feature representations of the given data and several switches to turn on/off generated feature types and preprocessing steps.
+
+The main files in the module are:
+a) model_2.py: this is the driver script. It provides several options on top to choose from classifier types; blender; ensembles etc
+b) model.py: this file has all the classification algorithms
+c) read_data.py: all pre-processing of data and feature engineering is done here. This file is currently data specific so change the preprocess_dataset function to perform
+		 feature engineering on the new dataset
+d) voted_classification.py: takes majority vote over k submissions
+e) tune_model.py: use this file to tune a RandomForest or ExtraTreeClassifiers etc. Generates plots of training accuracy with changing parameter thresholds
+
+
