@@ -14,7 +14,25 @@ d) voted_classification.py: takes majority vote over k submissions
 e) tune_model.py: use this file to tune a RandomForest or ExtraTreeClassifiers etc. Generates plots of training accuracy with changing parameter thresholds
 
 
-USAGE: python final_predictions.py DATAFILE QUIZFILE OUTPUTFILE
+How the blender works:
+
+Step 1) initialize classifiers to use in the blending task as clfs variable (add classifiers to that variable)
+
+Step 2) split training data into kfolds
+
+Step 3) 
+	Do for every classifier:
+		Do for every fold:
+			train each classifier in blender on the kth training fold and do the following:
+				a) predict probabilities of the kth "test" fold only
+				b) append predictions to holdout set "dataset_blend_holdout_j" for classifier trained on that fold only
+				c) append predictions to test set "dataset_blend_test_j" for classifier trained on that fold only
+		When all folds are finished processing take a mean of predictions generated for the classifier trained on different folds
+		for both dataset_blend_holdout_j and dataset_blend_test_j and append mean values to dataset_blend_holdout, dataset_blend_test
+
+
+
+USAGE: python model_2.py DATAFILE QUIZFILE OUTPUTFILE
 
 Report: ml-kaggle-report.pdf
 
